@@ -21,8 +21,8 @@
 #define LED_PIN   2
 #define RELAY_ACTIVE_LOW true
 
-const char* AP_SSID = "YOUR_APP_SSID";
-const char* AP_PASS = "YOUR_APP_PWD";
+const char* AP_SSID = "YOUR_AP_SSID";
+const char* AP_PASS = "YOUR_AP_PWD";
 const char* MDNS_HOST = "yourlocaladdress"; // you can access the device from your router through http://yourlocaladdress.local", once router credentials are entered
 
 const long gmtOffset_sec = 5 * 3600;
