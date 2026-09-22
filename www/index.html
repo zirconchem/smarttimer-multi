@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0066cc">
+<title>Smart Timer Remote</title>
+<style>
+  :root{
+    --bg:#f4f6f8; --card:#fff; --text:#333; --muted:#666;
+    --accent:#0066cc; --ok:#28a745; --bad:#dc3545; --warn:#ffc107; --neutral:#6c757d;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:'Segoe UI',Roboto,system-ui,sans-serif;
+    -webkit-tap-highlight-color:transparent;}
+  header{background:#fff;padding:12px 14px;box-shadow:0 2px 4px rgba(0,0,0,0.08);
+    position:sticky;top:0;z-index:10;}
+  .toprow{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  h1{margin:0;font-size:17px;color:var(--accent);white-space:nowrap;}
+  .conn{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--neutral);flex-shrink:0;}
+  .dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok);}
+  .dot.off{background:var(--bad);}
+  .dot.warn{background:var(--warn);}
+  .devrow{margin-top:10px;display:flex;gap:8px;}
+  .devrow select{flex:1;padding:10px;font-size:15px;border:1px solid #ccc;
+    border-radius:8px;background:#fff;font-family:inherit;}
+  .devrow button{padding:0 14px;border:none;border-radius:8px;background:var(--accent);
+    color:#fff;font-size:18px;cursor:pointer;font-family:inherit;}
+  main{padding:14px;max-width:520px;margin:0 auto;padding-bottom:40px;}
+  .card{background:var(--card);border-radius:12px;padding:14px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.08);margin-bottom:12px;}
+  .card h2{margin:0 0 10px 0;font-size:14px;color:var(--accent);
+    text-transform:uppercase;letter-spacing:0.5px;}
+  .row{display:flex;justify-content:space-between;align-items:center;
+    padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;}
+  .row:last-child{border-bottom:none;}
+  .row .lbl{color:var(--muted);}
+  .row .val{font-weight:600;text-align:right;max-width:60%;word-break:break-word;}
+  .big{font-size:30px;font-weight:700;text-align:center;padding:14px 0;}
+  .big.on{color:var(--ok);}
+  .big.off{color:var(--bad);}
+  .big.unk{color:var(--muted);}
+  button.action{display:block;width:100%;padding:16px;margin:8px 0;font-size:17px;
+    font-weight:600;border:none;border-radius:10px;cursor:pointer;
+    font-family:inherit;transition:transform .1s, background .15s;}
+  button.action:active{transform:scale(0.97);}
+  .btn-on{background:var(--ok);color:#fff;}
+  .btn-off{background:var(--bad);color:#fff;}
+  .btn-clear{background:#888;color:#fff;}
+  .btn-primary{background:var(--accent);color:#fff;}
+  label{display:block;font-size:13px;color:var(--muted);margin-top:10px;text-align:left;}
+  input,select{width:100%;padding:11px;margin-top:4px;font-size:15px;
+    border:1px solid #ccc;border-radius:8px;font-family:inherit;background:#fff;}
+  .small{font-size:12px;color:var(--muted);margin-top:6px;text-align:left;}
+  .hidden{display:none !important;}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+    background:#333;color:#fff;padding:10px 18px;border-radius:20px;
+    font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;}
+  .toast.show{opacity:1;}
+  .toast.ok{background:var(--ok);}
+  .toast.bad{background:var(--bad);}
+  .devitem{display:flex;align-items:center;justify-content:space-between;
+    padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px;background:#fafafa;}
+  .devitem .name{font-weight:600;font-size:15px;}
+  .devitem .topic{font-size:12px;color:var(--muted);}
+  .devitem .btns button{padding:6px 10px;margin-left:6px;font-size:13px;
+    border:none;border-radius:6px;cursor:pointer;font-family:inherit;}
+  .edit{background:var(--accent);color:#fff;}
+  .del{background:var(--bad);color:#fff;}
+  @media (prefers-color-scheme: dark){
+    :root{--bg:#121212;--card:#1e1e1e;--text:#e0e0e0;--muted:#999;}
+    header{background:#1a1a1a;}
+    .row{border-bottom:1px solid #2a2a2a;}
+    input,select,.devrow select{background:#2a2a2a;color:#e0e0e0;border-color:#444;}
+    .devitem{background:#222;border-color:#333;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="toprow">
+    <h1>Smart Timer Remote</h1>
+    <div class="conn">
+      <span id="connDot" class="dot"></span>
+      <span id="connText">Disconnected</span>
+    </div>
+  </div>
+  <div class="devrow">
+    <select id="deviceSel" onchange="switchDevice(this.value)"></select>
+    <button onclick="openManager()" title="Manage devices">⚙</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- Empty state -->
+  <section id="emptyPanel" class="card hidden">
+    <h2>Welcome</h2>
+    <p>No devices configured yet.</p>
+    <button class="action btn-primary" onclick="openManager()">Add your first device</button>
+  </section>
+
+  <!-- Main device UI -->
+  <section id="mainPanel" class="hidden">
+
+    <div class="card">
+      <h2>Appliance</h2>
+      <div id="relayBig" class="big unk">—</div>
+      <div class="row"><span class="lbl">Mode</span><span id="vMode" class="val">—</span></div>
+      <div class="row"><span class="lbl">Override</span><span id="vOverride" class="val">—</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Time</h2>
+      <div class="row"><span class="lbl">Device time</span><span id="vTime" class="val">—</span></div>
+      <div class="row"><span class="lbl">Source</span><span id="vSource" class="val">—</span></div>
+      <div class="row"><span class="lbl">Last NTP</span><span id="vNtp" class="val">—</span></div>
+      <div class="row"><span class="lbl">Temperature</span><span id="vTemp" class="val">—</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Override Control</h2>
+      <label for="durSel">Duration</label>
+      <select id="durSel">
+        <option value="0">Indefinite</option>
+        <option value="30">30 minutes</option>
+        <option value="60" selected>1 hour</option>
+        <option value="90">1.5 hours</option>
+        <option value="120">2 hours</option>
+        <option value="180">3 hours</option>
+        <option value="240">4 hours</option>
+      </select>
+      <button class="action btn-on"    onclick="sendOverride('on')">Force ON</button>
+      <button class="action btn-off"   onclick="sendOverride('off')">Force OFF</button>
+      <button class="action btn-clear" onclick="sendOverride('clear')">Clear Override</button>
+    </div>
+
+    <div class="card">
+      <button class="action btn-clear" style="font-size:14px;padding:10px;"
+        onclick="openManager()">Manage Devices</button>
+      <div class="small" id="topicHint"></div>
+    </div>
+
+  </section>
+
+  <!-- Device manager overlay -->
+  <section id="managerPanel" class="hidden">
+    <div class="card">
+      <h2>Device Manager</h2>
+
+      <div class="card" style="box-shadow:none;background:#fafafa;padding:12px;">
+        <h2 style="font-size:13px;">Broker (shared default)</h2>
+        <label>Broker host</label>
+        <input id="m_broker_host" placeholder="hc1c11bb.ala.asia-southeast1.emqxsl.com">
+        <label>WSS port</label>
+        <input id="m_broker_port" value="8084">
+        <label>Username</label>
+        <input id="m_broker_user" autocomplete="off">
+        <label>Password</label>
+        <input id="m_broker_pass" type="password" autocomplete="off">
+        <div class="small">These apply to all devices unless overridden per device.</div>
+      </div>
+
+      <div id="deviceList"></div>
+
+      <div class="card" style="box-shadow:none;background:#eef5ff;padding:12px;">
+        <h2 style="font-size:13px;">Add / Edit Device</h2>
+        <label>Device name (displayed in app)</label>
+        <input id="m_dev_name" placeholder="GeyserE26">
+
+        <label>Topic base</label>
+        <input id="m_dev_topic" placeholder="GeyserE26">
+
+        <label style="margin-top:12px;">
+          <input type="checkbox" id="m_dev_override" style="width:auto;margin-right:6px;"
+            onchange="document.getElementById('devOverrideBox').classList.toggle('hidden', !this.checked)">
+          Override broker settings for this device
+        </label>
+
+        <div id="devOverrideBox" class="hidden">
+          <label>Broker host</label>
+          <input id="m_dev_host" placeholder="(leave blank to use shared broker)">
+          <label>WSS port</label>
+          <input id="m_dev_port" placeholder="8084">
+          <label>Username</label>
+          <input id="m_dev_user">
+          <label>Password</label>
+          <input id="m_dev_pass" type="password">
+        </div>
+
+        <button class="action btn-primary" style="margin-top:12px;"
+          onclick="saveDevice()">Save Device</button>
+        <button class="action btn-clear" style="font-size:14px;padding:10px;"
+          onclick="closeManager()">Done</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script>
+'use strict';
+
+const LS_KEY = 'smarttimer_multi_v1';
+
+// ---------- Global state ----------
+let store = {
+  broker: { host: '', port: 8084, user: '', pass: '' },
+  devices: [],
+  selected: null,
+  editing: null
+};
+let client = null;
+let currentTopics = null;
+let manuallyClosed = false;
+
+// ---------- Utilities ----------
+function $(id){ return document.getElementById(id); }
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(store)); }
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.broker && Array.isArray(parsed.devices)) {
+      store = parsed;
+    }
+  } catch(e){ console.warn('load failed', e); }
+}
+function showToast(msg, kind){
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (kind ? ' ' + kind : '');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => { t.className = 'toast'; }, 2200);
+}
+function setConn(state, text){
+  const dot = $('connDot');
+  dot.className = 'dot' +
+    (state === 'on' ? ' on' : state === 'off' ? ' off' : state === 'warn' ? ' warn' : '');
+  $('connText').textContent = text;
+}
+function resetStatusFields(){
+  $('relayBig').textContent = '—';
+  $('relayBig').className = 'big unk';
+  ['vMode','vOverride','vTime','vSource','vNtp','vTemp'].forEach(id => $(id).textContent = '—');
+}
+
+// ---------- Device topics ----------
+function buildTopics(base){
+  return {
+    base,
+    sub: base + '/status/#',
+    cmdOverride: base + '/cmd/override',
+    status: {
+      relay:    base + '/status/relay',
+      mode:     base + '/status/mode',
+      override: base + '/status/override',
+      time:     base + '/status/time',
+      source:   base + '/status/source',
+      temp:     base + '/status/temp',
+      lastNtp:  base + '/status/last_ntp',
+      online:   base + '/status/online'
+    }
+  };
+}
+
+// ---------- Connection ----------
+function connect(device){
+  if (client) {
+    manuallyClosed = true;
+    try { client.end(true); } catch(e){}
+    client = null;
+  }
+  currentTopics = buildTopics(device.topic);
+
+  const useOwn = device.overrideBroker === true;
+  const host = (useOwn && device.host) ? device.host : store.broker.host;
+  const port = (useOwn && device.port) ? device.port : store.broker.port;
+  const user = (useOwn && device.user) ? device.user : store.broker.user;
+  const pass = (useOwn && device.pass) ? device.pass : store.broker.pass;
+
+  if (!host) { setConn('off','No broker'); return; }
+
+  const url = `wss://${host}:${port}/mqtt`;
+  setConn('warn', 'Connecting…');
+
+  manuallyClosed = false;
+  client = mqtt.connect(url, {
+    clientId: 'web-' + Math.random().toString(16).slice(2,10),
+    clean: true,
+    reconnectPeriod: 4000,
+    connectTimeout: 10000,
+    keepalive: 30,
+    username: user || undefined,
+    password: pass || undefined
+  });
+
+  client.on('connect', () => {
+    setConn('on', 'Connected');
+    client.subscribe(currentTopics.sub, { qos: 1 }, (err) => {
+      if (err) showToast('Subscribe failed', 'bad');
+    });
+    $('topicHint').textContent = 'Subscribed to ' + currentTopics.sub + ' | Commands → ' + currentTopics.cmdOverride;
+  });
+  client.on('reconnect', () => setConn('warn','Reconnecting…'));
+  client.on('close',     () => { if (!manuallyClosed) setConn('off','Disconnected'); });
+  client.on('error',     (e) => { setConn('off','Error'); console.warn(e); });
+
+  client.on('message', (topic, payload) => {
+    const text = payload.toString();
+    if (topic === currentTopics.status.relay) {
+      const up = text.toUpperCase();
+      const el = $('relayBig');
+      el.textContent = up;
+      el.className = 'big ' + (up === 'ON' ? 'on' : up === 'OFF' ? 'off' : 'unk');
+    }
+    else if (topic === currentTopics.status.mode)     $('vMode').textContent     = text;
+    else if (topic === currentTopics.status.override) $('vOverride').textContent = humanOverride(text);
+    else if (topic === currentTopics.status.time)     $('vTime').textContent     = text;
+    else if (topic === currentTopics.status.source)   $('vSource').textContent   = text;
+    else if (topic === currentTopics.status.temp)     $('vTemp').textContent     = text + ' °C';
+    else if (topic === currentTopics.status.lastNtp)  $('vNtp').textContent      = text;
+    else if (topic === currentTopics.status.online) {
+      if (text === 'online')  setConn('on',  'Connected');
+      if (text === 'offline') setConn('off', 'Device offline');
+    }
+  });
+}
+
+function humanOverride(s){
+  if (!s || s === 'none') return 'None';
+  const m = s.match(/^(on|off)_(indefinite|until_(\d{2}:\d{2}))$/);
+  if (!m) return s;
+  return (m[1] === 'on' ? 'ON' : 'OFF') +
+         (m[2] === 'indefinite' ? ' (indefinite)' : ' until ' + m[3]);
+}
+
+// ---------- Device selection / UI switching ----------
+function renderDeviceSelector(){
+  const sel = $('deviceSel');
+  sel.innerHTML = '';
+  if (store.devices.length === 0) {
+    const o = document.createElement('option');
+    o.value = ''; o.textContent = 'No devices';
+    sel.appendChild(o);
+    return;
+  }
+  store.devices.forEach((d, i) => {
+    const o = document.createElement('option');
+    o.value = i;
+    o.textContent = d.name || d.topic;
+    if (store.selected === i) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function switchDevice(idxStr){
+  const idx = parseInt(idxStr, 10);
+  if (isNaN(idx) || !store.devices[idx]) return;
+  store.selected = idx;
+  save();
+  showMain();
+  resetStatusFields();
+  connect(store.devices[idx]);
+}
+
+function showMain(){
+  $('emptyPanel').classList.add('hidden');
+  $('managerPanel').classList.add('hidden');
+  $('mainPanel').classList.remove('hidden');
+}
+function showEmpty(){
+  $('mainPanel').classList.add('hidden');
+  $('managerPanel').classList.add('hidden');
+  $('emptyPanel').classList.remove('hidden');
+}
+
+// ---------- Device manager ----------
+function openManager(){
+  $('mainPanel').classList.add('hidden');
+  $('emptyPanel').classList.add('hidden');
+  $('managerPanel').classList.remove('hidden');
+
+  $('m_broker_host').value = store.broker.host || '';
+  $('m_broker_port').value = store.broker.port || 8084;
+  $('m_broker_user').value = store.broker.user || '';
+  $('m_broker_pass').value = store.broker.pass || '';
+
+  // Reset the add/edit form
+  store.editing = null;
+  $('m_dev_name').value = '';
+  $('m_dev_topic').value = '';
+  $('m_dev_override').checked = false;
+  $('devOverrideBox').classList.add('hidden');
+  $('m_dev_host').value = '';
+  $('m_dev_port').value = '';
+  $('m_dev_user').value = '';
+  $('m_dev_pass').value = '';
+
+  renderDeviceList();
+}
+
+function closeManager(){
+  // Save shared broker fields
+  store.broker.host = $('m_broker_host').value.trim();
+  store.broker.port = parseInt($('m_broker_port').value, 10) || 8084;
+  store.broker.user = $('m_broker_user').value;
+  store.broker.pass = $('m_broker_pass').value;
+  save();
+
+  if (store.devices.length === 0) {
+    showEmpty();
+    return;
+  }
+  if (store.selected == null || !store.devices[store.selected]) {
+    store.selected = 0;
+    save();
+  }
+  renderDeviceSelector();
+  showMain();
+  resetStatusFields();
+  connect(store.devices[store.selected]);
+}
+
+function renderDeviceList(){
+  const box = $('deviceList');
+  box.innerHTML = '';
+  if (store.devices.length === 0) {
+    box.innerHTML = '<div class="small">No devices added yet.</div>';
+    return;
+  }
+  store.devices.forEach((d, i) => {
+    const div = document.createElement('div');
+    div.className = 'devitem';
+    div.innerHTML = `
+      <div>
+        <div class="name">${escapeHtml(d.name)}</div>
+        <div class="topic">Topic: ${escapeHtml(d.topic)}</div>
+      </div>
+      <div class="btns">
+        <button class="edit" onclick="editDevice(${i})">Edit</button>
+        <button class="del" onclick="deleteDevice(${i})">Del</button>
+      </div>`;
+    box.appendChild(div);
+  });
+}
+
+function editDevice(i){
+  const d = store.devices[i];
+  if (!d) return;
+  store.editing = i;
+  $('m_dev_name').value = d.name || '';
+  $('m_dev_topic').value = d.topic || '';
+  $('m_dev_override').checked = !!d.overrideBroker;
+  $('devOverrideBox').classList.toggle('hidden', !d.overrideBroker);
+  $('m_dev_host').value = d.host || '';
+  $('m_dev_port').value = d.port || '';
+  $('m_dev_user').value = d.user || '';
+  $('m_dev_pass').value = d.pass || '';
+}
+
+function deleteDevice(i){
+  if (!confirm('Delete device "' + (store.devices[i].name || store.devices[i].topic) + '"?')) return;
+  store.devices.splice(i, 1);
+  if (store.selected === i) store.selected = store.devices.length ? 0 : null;
+  else if (store.selected != null && store.selected > i) store.selected--;
+  save();
+  renderDeviceList();
+  renderDeviceSelector();
+}
+
+function saveDevice(){
+  const name = $('m_dev_name').value.trim();
+  const topic = $('m_dev_topic').value.trim();
+  if (!name || !topic) { showToast('Name and topic required', 'bad'); return; }
+  if (!/^[A-Za-z0-9_\-\/]+$/.test(topic)) {
+    showToast('Topic must be A-Z, 0-9, _, -, /', 'bad');
+    return;
+  }
+  const dev = {
+    name, topic,
+    overrideBroker: $('m_dev_override').checked,
+    host: $('m_dev_host').value.trim(),
+    port: parseInt($('m_dev_port').value, 10) || null,
+    user: $('m_dev_user').value,
+    pass: $('m_dev_pass').value
+  };
+  if (store.editing != null) {
+    store.devices[store.editing] = dev;
+    showToast('Device updated', 'ok');
+  } else {
+    store.devices.push(dev);
+    if (store.selected == null) store.selected = store.devices.length - 1;
+    showToast('Device added', 'ok');
+  }
+  store.editing = null;
+  save();
+  renderDeviceList();
+  renderDeviceSelector();
+  // clear form
+  $('m_dev_name').value = '';
+  $('m_dev_topic').value = '';
+  $('m_dev_override').checked = false;
+  $('devOverrideBox').classList.add('hidden');
+  $('m_dev_host').value = '';
+  $('m_dev_port').value = '';
+  $('m_dev_user').value = '';
+  $('m_dev_pass').value = '';
+}
+
+// ---------- Override commands ----------
+function sendOverride(action){
+  if (!client || !client.connected) { showToast('Not connected', 'bad'); return; }
+  let payload = action;
+  if (action === 'on' || action === 'off') {
+    const mins = parseInt($('durSel').value, 10);
+    if (mins > 0) payload = action + ':' + mins;
+  }
+  client.publish(currentTopics.cmdOverride, payload, { qos: 1 }, (err) => {
+    if (err) showToast('Publish failed', 'bad');
+    else     showToast('Sent: ' + payload, 'ok');
+  });
+}
+
+// ---------- Helpers ----------
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+// ---------- Boot ----------
+(function boot(){
+  load();
+  renderDeviceSelector();
+
+  if (store.devices.length === 0) {
+    showEmpty();
+    return;
+  }
+  if (store.selected == null || !store.devices[store.selected]) {
+    store.selected = 0;
+    save();
+  }
+  renderDeviceSelector();
+  showMain();
+  connect(store.devices[store.selected]);
+})();
+</script>
+</body>
+</html>
